@@ -75,7 +75,6 @@ export const registerTo = async (first_name, last_name, username, password) => {
 export const getUser = async (id) => {
   try {
     const response = await api.get(`https://wholly-intense-kiwi.ngrok-free.app/api/user/${id}`);
-    console.log('Respuesta de getUser:', response);
     return response.data; 
   } catch (error) {
     console.error('Error al traer el usuario:', error);

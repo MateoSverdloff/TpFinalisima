@@ -1,129 +1,84 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Button, Alert, FlatList } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, FlatList } from 'react-native';
 import moment from 'moment';
-import { getEventById, getParticipants, subscribeToEvent, unsubscribeFromEvent } from '../services/EventServices';
 import { getEventsByCategory } from '../services/EventServiceSearch.js';
 
 const EventCategoryDetail = ({ route, navigation }) => {
     const { categoryId } = route.params; 
-    const [event, setEvents] = useState([]);
+    const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [participants, setParticipants] = useState([]);
-    const [isSubscribed, setIsSubscribed] = useState(false);
 
     useEffect(() => {
         const fetchEvents = async () => {
             try {
                 const data = await getEventsByCategory(categoryId);
                 
-                if (data && data.success === false && data.message) {
-                    Alert.alert('Error', data.message, [
-                        {
-                            text: 'OK',
-                            onPress: () => navigation.goBack(),
-                        },
-                    ]);
-                    return;
+                if (data && Array.isArray(data) && data[0]?.response) {
+                    const eventData = data[0].response;
+                    const eventsArray = eventData ? [eventData] : [];
+                    setEvents(eventsArray);
+                } else {
+                    setEvents([]);
+                    Alert.alert('Error', 'No se pudieron cargar los eventos');
                 }
-
-                setEvents(data);
             } catch (error) {
-                console.error('Error fetching events:', error);
-                Alert.alert('Error', 'Failed to load events for this category');
+                Alert.alert('Error', 'No se pudieron cargar los eventos de esta categoría');
             } finally {
                 setLoading(false);
             }
         };
         
         fetchEvents();
-    }, [categoryId, navigation]);
+    }, [categoryId]);
 
-    const handleParticipants = async () => {
-        try {
-            const participantsData = await getParticipants(eventId);    
-            if (participantsData.success) {
-                const participantList = participantsData.response[0].response; 
-    
-                setParticipants(participantList);
-                const isUserSubscribed = participantList.some(participant => participant.username === user.username);
-                setIsSubscribed(isUserSubscribed);
-            } else {
-                Alert.alert('Error', 'Failed to load participants');
-            }
-        } catch (error) {
-            console.error('Error fetching participants:', error);
-            Alert.alert('Error', 'Failed to load participants');
-        }
-    };
-    
-    const handleSubscribe = async () => {
-        try {
-            await subscribeToEvent(eventId, token);
-            setIsSubscribed(true);
-            Alert.alert('Success', 'You have successfully subscribed to the event.');
-        } catch (error) {
-            Alert.alert('Error', 'Failed to subscribe to the event.');
+    const handleEventPress = (eventId) => {
+        if (eventId) {
+            navigation.navigate('EventDetail', { eventId });
         }
     };
 
-    const handleUnsubscribe = async () => {
-        try {
-            await unsubscribeFromEvent(eventId, token);
-            setIsSubscribed(false);
-            Alert.alert('Success', 'You have successfully unsubscribed from the event.');
-        } catch (error) {
-            Alert.alert('Error', 'Failed to unsubscribe from the event.');
-        }
+    const renderEventCard = ({ item }) => {
+        if (!item) return null;
+        
+        return (
+            <TouchableOpacity 
+                style={styles.card} 
+                onPress={() => handleEventPress(item.event_id)}
+            >
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.description}>{item.description}</Text>
+                <Text>Fecha: {moment(item.start_date).format('DD/MM/YYYY')}</Text>
+                <Text>Duración: {item.duration_in_minutes} minutos</Text>
+                <Text>Precio: ${item.price}</Text>
+                <Text>Ubicación: {item.event_location?.name}</Text>
+            </TouchableOpacity>
+        );
     };
 
     if (loading) {
-        return <Text>Loading...</Text>;
+        return (
+            <View style={styles.container}>
+                <Text>Cargando eventos...</Text>
+            </View>
+        );
     }
 
-    if (!event || event.length === 0 || !event[0].response) {
-        return <Text>Event not found</Text>;
+    if (!events || events.length === 0) {
+        return (
+            <View style={styles.container}>
+                <Text style={styles.noEventsText}>No hay eventos disponibles en esta categoría</Text>
+            </View>
+        );
     }
-
-    const isEventPast = moment(event[0].response.start_date).isBefore(moment());
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>{event[0].response.name || 'Evento no disponible'}</Text>
-            <Text style={styles.description}>{event[0].response.description || 'Descripción no disponible'}</Text>
-            <Text>Fecha: {moment(event[0].response.start_date).format('DD/MM/YYYY')}</Text>
-            <Text>Duración: {event[0].response.duration_in_minutes} minutos</Text>
-            <Text>Precio: ${event[0].response.price}</Text>
-            <Text>Máximo de Asistentes: {event[0].response.max_assistance}</Text>
-            <Text>
-                Creador: {event[0].response.creator_user?.first_name} {event[0].response.creator_user?.last_name || 'No disponible'}
-            </Text>
-            <Text>Ubicación: {event[0].response.event_location?.name || 'No disponible'}</Text>
-            <Text>Dirección: {event[0].response.event_location?.full_address || 'No disponible'}</Text>
-            
-            {!isEventPast && (
-                <View style={styles.buttonContainer}>
-                    {isSubscribed ? (
-                        <Button title="Desuscribirse" onPress={handleUnsubscribe} />
-                    ) : (
-                        <Button title="Inscribirse" onPress={handleSubscribe} />
-                    )}
-                </View>
-            )}
-
-            <View>
-                <Text style={styles.participantHeader}>Participantes:</Text>
-                <FlatList
-                    data={participants}
-                    keyExtractor={(item) => item.username}
-                    renderItem={({ item }) => (
-                        <View style={styles.participantItem}>
-                            <Text>
-                                {item.first_name} {item.last_name} - Asistió: {moment(event[0].response.start_date).isBefore(moment()) ? (item.attended ? 'Sí' : 'No') : 'N/A'}
-                            </Text>
-                        </View>
-                    )}
-                />
-            </View>
+            <FlatList
+                data={events}
+                renderItem={renderEventCard}
+                keyExtractor={(item) => item.event_id?.toString()}
+                contentContainerStyle={styles.listContainer}
+            />
         </View>
     );
 };
@@ -131,30 +86,39 @@ const EventCategoryDetail = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
         backgroundColor: '#fff',
     },
-    title: {
-        fontSize: 24,
+    listContainer: {
+        padding: 16,
+    },
+    card: {
+        backgroundColor: '#fff',
+        padding: 15,
+        marginBottom: 16,
+        borderRadius: 8,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    cardTitle: {
+        fontSize: 18,
         fontWeight: 'bold',
+        marginBottom: 8,
     },
     description: {
-        marginVertical: 10,
+        marginBottom: 8,
+        color: '#666',
+    },
+    noEventsText: {
+        textAlign: 'center',
         fontSize: 16,
-    },
-    participantHeader: {
-        fontSize: 20,
-        marginTop: 20,
-        fontWeight: 'bold',
-    },
-    participantItem: {
-        padding: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#ccc',
-    },
-    buttonContainer: {
-        marginVertical: 20,
-    },
+        color: '#666',
+    }
 });
 
 export default EventCategoryDetail;

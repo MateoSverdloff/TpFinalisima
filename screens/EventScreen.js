@@ -1,18 +1,32 @@
 // EventScreen.js
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { getEvents } from '../services/EventServices';
+import moment from 'moment';
 
 const EventScreen = ({ navigation }) => {
   const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         const data = await getEvents();
-        setEvents(data);
+        if (Array.isArray(data)) {
+          const uniqueEvents = Array.from(new Map(data.map(item => [item.id, item])).values());
+          setEvents(uniqueEvents);
+        } else if (data && Array.isArray(data.response)) {
+          const uniqueEvents = Array.from(new Map(data.response.map(item => [item.id, item])).values());
+          setEvents(uniqueEvents);
+        } else {
+          setEvents([]);
+          Alert.alert('Error', 'No se pudieron cargar los eventos');
+        }
       } catch (error) {
-        Alert.alert('Error', 'Failed to load events');
+        Alert.alert('Error', 'No se pudieron cargar los eventos');
+        setEvents([]);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -20,24 +34,53 @@ const EventScreen = ({ navigation }) => {
   }, []);
 
   const handleEventPress = (eventId) => {
-    navigation.navigate('EventDetail', { eventId });
+    if (eventId) {
+      navigation.navigate('EventDetail', { eventId });
+    }
   };  
 
-  const renderEventCard = ({ item }) => (
-    <TouchableOpacity style={styles.card} onPress={() => handleEventPress(item.id)}>
-      <Text style={styles.cardTitle}>{item.name}</Text>
-      <Text>{item.description}</Text>
-      <Text>Fecha: {item.start_date}</Text>
-      <Text>Precio: ${item.price}</Text>
-    </TouchableOpacity>
-  );
+  const renderEventCard = ({ item }) => {
+    if (!item) return null;
+
+    return (
+      <TouchableOpacity 
+        style={styles.card} 
+        onPress={() => handleEventPress(item.id)}
+      >
+        <Text style={styles.cardTitle}>{item.name}</Text>
+        <Text style={styles.description}>{item.description}</Text>
+        <Text>Fecha: {moment(item.start_date).format('DD/MM/YYYY')}</Text>
+        <Text>Duración: {item.duration_in_minutes} minutos</Text>
+        <Text>Precio: ${item.price}</Text>
+        <Text>Ubicación: {item.event_location?.name}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text>Cargando eventos...</Text>
+      </View>
+    );
+  }
+
+  if (!events || events.length === 0) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text>No hay eventos disponibles</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <FlatList
         data={events}
         renderItem={renderEventCard}
-        keyExtractor={(item) => item.id.toString()}
-        extraData={events}
+        keyExtractor={(item) => item.id?.toString()}
+        contentContainerStyle={styles.listContainer}
       />
     </View>
   );
@@ -46,6 +89,13 @@ const EventScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listContainer: {
     padding: 10,
   },
   card: {
@@ -54,11 +104,23 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     borderRadius: 8,
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 8,
   },
+  description: {
+    marginBottom: 8,
+    color: '#666',
+  }
 });
 
 export default EventScreen;
