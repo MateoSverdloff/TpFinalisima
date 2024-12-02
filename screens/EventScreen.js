@@ -1,6 +1,6 @@
 // EventScreen.js
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { getEvents } from '../services/EventServices';
 import moment from 'moment';
 
@@ -47,12 +47,21 @@ const EventScreen = ({ navigation }) => {
         style={styles.card} 
         onPress={() => handleEventPress(item.id)}
       >
-        <Text style={styles.cardTitle}>{item.name}</Text>
-        <Text style={styles.description}>{item.description}</Text>
-        <Text>Fecha: {moment(item.start_date).format('DD/MM/YYYY')}</Text>
-        <Text>Duración: {item.duration_in_minutes} minutos</Text>
-        <Text>Precio: ${item.price}</Text>
-        <Text>Ubicación: {item.event_location?.name}</Text>
+        <View style={styles.cardContent}>
+          <View style={styles.textContainer}>
+            <Text style={styles.cardTitle}>{item.name}</Text>
+            <Text style={styles.description}>{item.description}</Text>
+            <Text>Fecha: {moment(item.start_date).format('DD/MM/YYYY')}</Text>
+            <Text>Duración: {item.duration_in_minutes} minutos</Text>
+            <Text>Precio: ${item.price}</Text>
+            <Text>Ubicación: {item.event_location?.name}</Text>
+          </View>
+          <Image 
+            source={require(`../assets/events/8.jpg`)}
+            style={styles.eventImage}
+            resizeMode="cover"
+          />
+        </View>
       </TouchableOpacity>
     );
   };
@@ -120,7 +129,21 @@ const styles = StyleSheet.create({
   description: {
     marginBottom: 8,
     color: '#666',
-  }
+  },
+  cardContent: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  textContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  eventImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+  },
 });
 
 export default EventScreen;
